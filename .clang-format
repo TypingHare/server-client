@@ -1,0 +1,56 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+AccessModifierOffset: -3
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignOperands: true
+AlignTrailingComments: false
+AlwaysBreakTemplateDeclarations: Yes
+BraceWrapping:
+  AfterCaseLabel: false
+  AfterClass: false
+  AfterControlStatement: false
+  AfterEnum: false
+  AfterFunction: false
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeCatch: false
+  BeforeElse: false
+  BeforeLambdaBody: false
+  BeforeWhile: true
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+BreakBeforeBraces: Custom
+BreakConstructorInitializers: AfterColon
+IncludeCategories:
+  - Regex: '^<[^.]*\.h>$'  # C system headers
+    Priority: 1
+  - Regex: '^<[^.]*>$'  # C++ system headers
+    Priority: 2
+  - Regex: '^<[^.]*\.h(pp)?>$'  # Other h/hpp files
+    Priority: 3
+  - Regex: '^".*"'  # Other files
+    Priority: 4
+IncludeIsMainRegex: '([-_](test|unittest))?$'
+IndentCaseLabels: true
+IndentWidth: 4
+InsertNewlineAtEOF: true
+MacroBlockBegin: ''
+MacroBlockEnd: ''
+MaxEmptyLinesToKeep: 2
+NamespaceIndentation: None
+PointerAlignment: Left
+SpaceAfterTemplateKeyword: true
+SpaceBeforeRangeBasedForLoopColon: true
+SpacesInAngles: false
+TabWidth: 4
+SpacesBeforeTrailingComments: 2
+Cpp11BracedListStyle: false
+AlignAfterOpenBracket: BlockIndent
+BinPackParameters: OnePerLine
+BinPackArguments: false
+ColumnLimit: 80

@@ -113,6 +113,7 @@ int send_message(
     printf_flush("Verifying server X.509 certificate...  ");
     uint32_t flags = 0;
     flags = mbedtls_ssl_get_verify_result(&ctx->ssl_ctx);
+    printf("re: 0x%x\n", flags);
     if (flags != 0) {
         char verify_buffer[0x1000];
         mbedtls_x509_crt_verify_info(

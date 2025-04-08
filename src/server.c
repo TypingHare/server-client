@@ -2,14 +2,6 @@
 #include <string.h>
 #include "common.h"
 
-void ssl_debug(
-    void* fd, const int level, const char* file, const int line, const char* str
-) {
-    (void)level;
-    fprintf((FILE*)fd, "%s:%04d: %s\n", file, line, str);
-    fflush(fd);
-}
-
 void server_context_init(server_context_t* ctx) {
     mbedtls_net_init(&ctx->server_ctx);
     mbedtls_net_init(&ctx->client_ctx);
@@ -91,7 +83,7 @@ void server_context_prepare(server_context_t* ctx) {
     mbedtls_ssl_conf_rng(
         &ctx->ssl_config, mbedtls_ctr_drbg_random, &ctx->ctr_drbg_ctx
     );
-    mbedtls_ssl_conf_dbg(&ctx->ssl_config, ssl_debug, stdout);
+    mbedtls_ssl_conf_dbg(&ctx->ssl_config, mbedtls_ssl_debug, stdout);
     mbedtls_ssl_conf_ca_chain(&ctx->ssl_config, ctx->x509_crt.next, NULL);
 
     result = mbedtls_ssl_conf_own_cert(
@@ -106,7 +98,7 @@ void server_context_prepare(server_context_t* ctx) {
 
 int server_listen(
     server_context_t* ctx,
-    uint8_t* data,
+    uint8_t* message,
     const request_callback_t callback,
     const volatile sig_atomic_t* stop
 ) {
@@ -184,18 +176,18 @@ int server_listen(
         (char*)(buffer + sizeof(size_t))
     );
 
-    // Copy the buffer to data
-    memcpy(data, buffer + sizeof(size_t), request_length - sizeof(size_t));
+    // Copy the buffer to `message`
+    memcpy(message, (char*)buffer, request_length);
 
     // Fire the callback, which should process the request and put the response
     // back to `data`
     printf_flush("Firing callback function...  ");
-    callback(data);
+    callback(message, request_length);
     printf_flush("OK\n");
 
     // Read from data to buffer
-    size_t response_length = extract_prefix_len(data);
-    memcpy(buffer, data, response_length);
+    size_t response_length = extract_prefix_len(message);
+    memcpy(buffer, message, response_length);
     buffer[response_length] = '\0';
 
     printf_flush("Writing to client...  ");

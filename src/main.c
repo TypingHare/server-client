@@ -1,11 +1,13 @@
-#include <stdlib.h>
 #include <string.h>
+
+#define MESSAGE_MAX_LENGTH 0x4000
 
 #ifdef CLIENT
 #include "client.h"
 #endif
 
 #ifdef SERVER
+#include <stdlib.h>
 #include "common.h"
 #include "server.h"
 
@@ -13,18 +15,28 @@ volatile sig_atomic_t stop = 0;
 
 void handle_sigint(int _) { stop = 1; }
 
-void demo_callback(uint8_t* data) {
-    const char message[] = "You too!";
+void demo_callback(uint8_t* data, const size_t size) {
+    uint8_t request[MESSAGE_MAX_LENGTH];
+    memcpy(request, data + sizeof(size_t), size - 1);
+
+    const char message[] = "Your name is: ";
+    memcpy(data + sizeof(size_t), message, strlen(message));
+    memcpy(data + sizeof(size_t) + strlen(message), request, strlen(request));
+
     attach_prefix_len(data, strlen(message));
-    strcpy((char*)(data + sizeof(size_t)), message);
 }
 #endif
 
-int main(int _, char** argv) {
+int main(const int argc, const char** argv) {
     char ca_cert_path[] = "ssl/ca.crt";
     char port[] = "4433";
 
 #ifdef CLIENT
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <message>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
     char hostname[] = "localhost";
     client_context_t ctx;
     ctx.hostname = hostname;
@@ -32,7 +44,7 @@ int main(int _, char** argv) {
     ctx.ca_cert_path = ca_cert_path;
     client_context_init(&ctx);
 
-    char response[0x4000];
+    uint8_t* response[0x4000];
     send_message(&ctx, argv[1], strlen(argv[1]), response);
 #endif
 
@@ -49,9 +61,9 @@ int main(int _, char** argv) {
 
     signal(SIGINT, handle_sigint);
     while (!stop) {
-        uint8_t data[0x4000];
+        uint8_t message[MESSAGE_MAX_LENGTH];
         printf("\n");
-        server_listen(&ctx, data, demo_callback, &stop);
+        server_listen(&ctx, message, demo_callback, &stop);
     }
 
     printf("\nShutting down the server...\n");

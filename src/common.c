@@ -8,6 +8,13 @@ bool mbedtls_want_read_or_write(const int result) {
            result == MBEDTLS_ERR_SSL_WANT_WRITE;
 }
 
+void mbedtls_ssl_debug(
+    void* fd, const int _, const char* file, const int line, const char* str
+) {
+    fprintf((FILE*)fd, "%s:%04d: %s\n", file, line, str);
+    fflush(fd);
+}
+
 size_t extract_prefix_len(const uint8_t* data) {
     size_t size = 0;
     for (int i = 0; i < sizeof(size_t); i++) {

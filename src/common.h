@@ -39,7 +39,25 @@ bool mbedtls_fail(int result);
  * @return true if the operation should be retried (WANT_READ or WANT_WRITE);
  * false otherwise.
  */
-bool mbedtls_want_read_or_write(const int result);
+bool mbedtls_want_read_or_write(int result);
+
+/**
+ * @brief Logs an SSL-related debug message to the specified file stream.
+ *
+ * This function prints a debug message with the source file name and line
+ * number to the provided file descriptor. The output is immediately flushed to
+ * ensure it is written in real-time.
+ *
+ * @param fd A pointer to a FILE stream.
+ * @param level The level of the debug message.
+ * @param file The name of the source file where the debug message originated.
+ * @param line The line number in the source file where the message was
+ * generated.
+ * @param str  The debug message to log.
+ */
+void mbedtls_ssl_debug(
+    void* fd, int level, const char* file, int line, const char* str
+);
 
 /**
  * @brief Extracts the total message length (including prefix) from the given

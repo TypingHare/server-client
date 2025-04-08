@@ -1,19 +1,24 @@
+#include <stdlib.h>
+#include <string.h>
+
 #ifdef CLIENT
 #include "client.h"
 #endif
 
 #ifdef SERVER
+#include "common.h"
 #include "server.h"
 
 volatile sig_atomic_t stop = 0;
 
 void handle_sigint(int _) { stop = 1; }
+
+void demo_callback(uint8_t* data) {
+    const char message[] = "You too!";
+    attach_prefix_len(data, strlen(message));
+    strcpy((char*)(data + sizeof(size_t)), message);
+}
 #endif
-
-#include <stdlib.h>
-#include <string.h>
-
-void demo_callback(char* data) { strcpy(data, "Hello World!\n"); }
 
 int main(int _, char** argv) {
     char ca_cert_path[] = "ssl/ca.crt";
@@ -44,7 +49,7 @@ int main(int _, char** argv) {
 
     signal(SIGINT, handle_sigint);
     while (!stop) {
-        char data[0x4000];
+        uint8_t data[0x4000];
         printf("\n");
         server_listen(&ctx, data, demo_callback, &stop);
     }

@@ -19,7 +19,7 @@ typedef struct {
     mbedtls_ctr_drbg_context ctr_drbg_ctx;
 } server_context_t;
 
-typedef void (*request_callback_t)(char* data);
+typedef void (*request_callback_t)(uint8_t* data);
 
 void ssl_debug(
     void* fd, int level, const char* file, int line, const char* str
@@ -33,7 +33,7 @@ void server_context_prepare(server_context_t* ctx);
 
 int server_listen(
     server_context_t* ctx,
-    char* data,
+    uint8_t* data,
     request_callback_t callback,
     const volatile sig_atomic_t* stop
 );

@@ -4,7 +4,7 @@
 #include <string.h>
 #include "common.h"
 
-void my_debug(
+void ssl_debug(
     void* ctx,
     const int level,
     const char* file,
@@ -55,7 +55,7 @@ int send_message(
     check_mbedtls_result(result, ctx, "mbedtls_ctr_drbg_seed");
     printf("OK\n");
 
-    // Connect to the server
+    // Connect to the server using TCP
     printf_flush("Connecting to TCP %s:%s...  ", ctx->hostname, ctx->port);
     result = mbedtls_net_connect(
         &ctx->net_ctx, ctx->hostname, ctx->port, MBEDTLS_NET_PROTO_TCP
@@ -82,43 +82,47 @@ int send_message(
     mbedtls_ssl_conf_ca_chain(&ctx->ssl_config, &ctx->x509_crt, NULL);
     printf("OK\n");
 
+    // Set up RNG function (CTR-DRBG) for the SSL/TLS connection
     mbedtls_ssl_conf_rng(
         &ctx->ssl_config, mbedtls_ctr_drbg_random, &ctx->ctr_drbg_ctx
     );
-    mbedtls_ssl_conf_dbg(&ctx->ssl_config, my_debug, stdout);
+
+    // Enable debug output during SSL operations.
+    mbedtls_ssl_conf_dbg(&ctx->ssl_config, ssl_debug, stdout);
+
+    // Bind the config and the hostname to the context
     result = mbedtls_ssl_setup(&ctx->ssl_ctx, &ctx->ssl_config);
     check_mbedtls_result(result, ctx, "mbedtls_ssl_setup");
     result = mbedtls_ssl_set_hostname(&ctx->ssl_ctx, ctx->hostname);
     check_mbedtls_result(result, ctx, "mbedtls_ssl_set_hostname");
+
+    // Connects the SSL layer to the underlying transport I/O (TCP socket)
     mbedtls_ssl_set_bio(
         &ctx->ssl_ctx, &ctx->net_ctx, mbedtls_net_send, mbedtls_net_recv, NULL
     );
 
     printf_flush("Performing the SSL/TLS handshake...  ");
     while ((result = mbedtls_ssl_handshake(&ctx->ssl_ctx)) != 0) {
-        if (result != MBEDTLS_ERR_SSL_WANT_READ &&
-            result != MBEDTLS_ERR_SSL_WANT_WRITE) {
-            error("mbedtls_ssl_handshake returned -0x%x", -result);
-            client_context_free(ctx);
-            exit(EXIT_FAILURE);
+        if (!mbedtls_want_read_or_write(result)) {
+            check_mbedtls_result(result, ctx, "mbedtls_ssl_handshake");
         }
     }
     printf("OK\n");
 
-    // Verify server certificate
-    // printf_flush("Verifying server X.509 certificate...  ");
-    // uint32_t flags = 0;
-    // flags = mbedtls_ssl_get_verify_result(&ctx->ssl_ctx);
-    // if (flags != 0) {
-    //     char verify_buffer[0x1000];
-    //     mbedtls_x509_crt_verify_info(
-    //         verify_buffer, sizeof(verify_buffer), "! ", flags
-    //     );
-    //     error("Failed:\n%s\n", verify_buffer);
-    //     client_context_free(ctx);
-    //     exit(EXIT_FAILURE);
-    // }
-    // printf("OK\n");
+    // Verify the certificate of the server
+    printf_flush("Verifying server X.509 certificate...  ");
+    uint32_t flags = 0;
+    flags = mbedtls_ssl_get_verify_result(&ctx->ssl_ctx);
+    if (flags != 0) {
+        char verify_buffer[0x1000];
+        mbedtls_x509_crt_verify_info(
+            verify_buffer, sizeof(verify_buffer), "! ", flags
+        );
+        error("Failed:\n%s\n", verify_buffer);
+        client_context_free(ctx);
+        exit(EXIT_FAILURE);
+    }
+    printf("OK\n");
 
     const size_t buffer_size = sizeof(size_t) + length;
     uint8_t buffer[buffer_size];
@@ -134,37 +138,15 @@ int send_message(
         }
     }
     printf("OK\n");
-    printf_flush(">> (%d bytes written)\n%s\n", result, message);
+    printf_flush(ANSI_YELLOW ">> (%d bytes)\n%s\n" ANSI_RESET, result, message);
 
-    printf_flush("<< Read from server:");
-    fflush(stdout);
-
-    do {
-        length = sizeof(buffer) - 1;
-        memset(buffer, 0, sizeof(buffer));
-        result = mbedtls_ssl_read(&ctx->ssl_ctx, buffer, length);
-
-        if (result == MBEDTLS_ERR_SSL_WANT_READ ||
-            result == MBEDTLS_ERR_SSL_WANT_WRITE)
-            continue;
-
-        if (result == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY)
-            break;
-
-        if (result < 0) {
-            check_mbedtls_result(result, ctx, "mbedtls_ssl_read");
-        }
-
-        if (result == 0) {
-            printf("\n(EOF)\n");
-            break;
-        }
-
-        length = result;
-        printf_flush(" %lu bytes read\n\n%s", length, (char*)buffer);
-        memcpy(response, buffer, 1024);
-    }
-    while (true);
+    uint8_t in_buffer[8192];
+    const int received_length = receive_message(&ctx->ssl_ctx, in_buffer);
+    printf(
+        ANSI_YELLOW "<< (%d bytes)\n%s\n" ANSI_RESET,
+        received_length,
+        (char*)(in_buffer + sizeof(size_t))
+    );
 
     mbedtls_ssl_close_notify(&ctx->ssl_ctx);
     client_context_free(ctx);

@@ -98,6 +98,7 @@ void server_context_prepare(server_context_t* ctx) {
         &ctx->ssl_config, &ctx->x509_crt, &ctx->pk_ctx
     );
     check_mbedtls_result(result, ctx, "mbedtls_ssl_conf_own_cert");
+
     result = mbedtls_ssl_setup(&ctx->ssl_ctx, &ctx->ssl_config);
     check_mbedtls_result(result, ctx, "mbedtls_ssl_setup");
     printf("OK\n");
@@ -105,7 +106,7 @@ void server_context_prepare(server_context_t* ctx) {
 
 int server_listen(
     server_context_t* ctx,
-    char* data,
+    uint8_t* data,
     const request_callback_t callback,
     const volatile sig_atomic_t* stop
 ) {
@@ -161,50 +162,30 @@ int server_listen(
     printf_flush("OK\n");
 
     unsigned char buffer[8192];
-    size_t request_length = 0;
-    do {
-        unsigned char read_buffer[1024];
-        const int len = sizeof(read_buffer) - 1;
-        memset(read_buffer, 0, sizeof(read_buffer));
-        result = mbedtls_ssl_read(&ctx->ssl_ctx, read_buffer, len);
-
-        if (result == MBEDTLS_ERR_SSL_WANT_READ ||
-            result == MBEDTLS_ERR_SSL_WANT_WRITE)
-            continue;
-
-        if (result < 0) {
-            switch (result) {
-                case MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY:
-                    printf_flush("Connection was closed gracefully.\n");
-                    break;
-                case MBEDTLS_ERR_NET_CONN_RESET:
-                    printf_flush("Connection was reset by peer.\n");
-                    break;
-                default:
-                    error("mbedtls_ssl_read returned -0x%x\n", -result);
-            }
-
-            break;
+    const int request_length = receive_message(&ctx->ssl_ctx, buffer);
+    if (request_length <= 0) {
+        switch (request_length) {
+            case 0:
+                error("The request length is 0, which is invalid.");
+                return EXIT_FAILURE;
+            case MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY:
+                printf_flush("Connection was closed.\n");
+                return EXIT_FAILURE;
+            case MBEDTLS_ERR_NET_CONN_RESET:
+                printf_flush("Connection was reset by the client.\n");
+                return EXIT_FAILURE;
+            default:;
         }
-
-        if (request_length + result < sizeof(buffer)) {
-            memcpy(buffer + request_length, read_buffer, result);
-            request_length += result;
-        } else {
-            printf_flush("Buffer overflow!\n");
-            break;
-        }
-
-        break;
     }
-    while (true);
 
-    buffer[request_length] = '\0';
-    printf_flush("<< Read from client:\n%s", (char*)buffer);
+    printf_flush(
+        ANSI_YELLOW "<< (%d bytes)\n%s\n" ANSI_RESET,
+        request_length,
+        (char*)(buffer + sizeof(size_t))
+    );
 
     // Copy the buffer to data
-    memcpy(data, buffer, request_length);
-    printf_flush("%s\n", data + sizeof(size_t));
+    memcpy(data, buffer + sizeof(size_t), request_length - sizeof(size_t));
 
     // Fire the callback, which should process the request and put the response
     // back to `data`
@@ -215,8 +196,9 @@ int server_listen(
     // Read from data to buffer
     size_t response_length = extract_prefix_len(data);
     memcpy(buffer, data, response_length);
+    buffer[response_length] = '\0';
 
-    printf_flush(">> Write to client: ");
+    printf_flush("Writing to client...  ");
     while ((result = mbedtls_ssl_write(&ctx->ssl_ctx, buffer, response_length)
            ) <= 0) {
         if (result == MBEDTLS_ERR_NET_CONN_RESET) {
@@ -230,6 +212,12 @@ int server_listen(
             return -1;
         }
     }
+    printf("OK\n");
+    printf_flush(
+        ANSI_YELLOW ">> (%lu bytes)\n%s\n" ANSI_RESET,
+        response_length,
+        (char*)(buffer + sizeof(size_t))
+    );
 
     return 0;
 }

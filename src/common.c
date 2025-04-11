@@ -9,10 +9,16 @@ bool mbedtls_want_read_or_write(const int result) {
 }
 
 void mbedtls_ssl_debug(
-    void* fd, const int _, const char* file, const int line, const char* str
+    void* fd, const int level, const char* file, const int line, const char* str
 ) {
-    fprintf((FILE*)fd, "%s:%04d: %s\n", file, line, str);
+    fprintf((FILE*)fd, "%04d: %s", line, str);
     fflush(fd);
+}
+
+void print_mbedtls_error(const int ret) {
+    char error_buf[0x100];
+    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+    printf("%s\n", error_buf);
 }
 
 size_t extract_prefix_len(const uint8_t* data) {
@@ -61,3 +67,14 @@ int receive_message(mbedtls_ssl_context* ctx, uint8_t* buffer) {
     buffer[total_length] = '\0';
     return total_length;
 }
+
+// void print_cert(const mbedtls_x509_crt* cert) {
+//     const mbedtls_pk_context* pubkey = &cert->pk;
+//     char buf[0x10000];
+//     const int ret = mbedtls_pk_write_pubkey_pem(pubkey, buf, sizeof(buf));
+//     if (ret == 0) {
+//         printf("%s\n", buf);
+//     } else {
+//         error("! Failed to print the peer's public key.");
+//     }
+// }

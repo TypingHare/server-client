@@ -54,3 +54,4 @@ AlignAfterOpenBracket: BlockIndent
 BinPackParameters: OnePerLine
 BinPackArguments: false
 ColumnLimit: 80
+AlignArrayOfStructures: Left

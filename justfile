@@ -10,3 +10,6 @@ run-client message: build
 
 run-server: build
     ./build/server
+
+s_client:
+    openssl s_client -connect localhost:4433

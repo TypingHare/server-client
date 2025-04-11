@@ -26,14 +26,15 @@ void check_mbedtls_result(
     const int result, client_context_t* ctx, const char* function_name
 ) {
     if (mbedtls_fail(result)) {
-        error("%s returned: %d", function_name, result);
+        error("%s returned: -0x%x", function_name, -result);
+        print_mbedtls_error(result);
         client_context_free(ctx);
         exit(EXIT_FAILURE);
     }
 }
 
 void send_message(
-    client_context_t* ctx, char* message, size_t length, uint8_t* response
+    client_context_t* ctx, const char* message, size_t length, uint8_t* response
 ) {
     printf_flush("Seeding the random generator...  ");
     int result = mbedtls_ctr_drbg_seed(
@@ -60,6 +61,12 @@ void send_message(
     );
     check_mbedtls_result(result, ctx, "mbedtls_ssl_config_defaults");
     printf_flush("OK\n");
+
+    // !! Change the cipher suites
+    const int custom_ciphersuites[] = { MY_CUSTOM_CIPHERSUITE,
+                                        MBEDTLS_TLS1_3_AES_256_GCM_SHA384,
+                                        0 };
+    mbedtls_ssl_conf_ciphersuites(&ctx->ssl_config, custom_ciphersuites);
 
     // Load the CA root certificate
     printf_flush("Loading the CA root certificate...  ");
@@ -114,6 +121,7 @@ void send_message(
     }
     printf("OK\n");
 
+    // Write the message to server
     const size_t buffer_size = sizeof(size_t) + length;
     uint8_t buffer[buffer_size];
     attach_prefix_len(buffer, length);

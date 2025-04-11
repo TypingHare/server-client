@@ -1,12 +1,22 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include <mbedtls/error.h>
 #include <mbedtls/net_sockets.h>
 #include <mbedtls/ssl.h>
 #include <stdbool.h>
 
 #define ANSI_YELLOW "\033[33m"
 #define ANSI_RESET "\033[0m"
+
+#define MESSAGE_MAX_LENGTH 0x4000
+
+// Debug mode
+#define MBEDTLS_DEBUG_C
+#define DEBUG_THRESHOLD 3
+
+// Define custom ciphersuites
+#define MY_CUSTOM_CIPHERSUITE 0x13B2
 
 #define printf_flush(...)                                                      \
     do {                                                                       \
@@ -59,6 +69,8 @@ void mbedtls_ssl_debug(
     void* fd, int level, const char* file, int line, const char* str
 );
 
+void print_mbedtls_error(const int ret);
+
 /**
  * @brief Extracts the total message length (including prefix) from the given
  * data.
@@ -98,5 +110,7 @@ void attach_prefix_len(uint8_t* dest, size_t size);
  *         or a negative value on error.
  */
 int receive_message(mbedtls_ssl_context* ctx, uint8_t* buffer);
+
+// void print_cert(const mbedtls_x509_crt* cert);
 
 #endif

@@ -60,8 +60,6 @@ void server_context_prepare(server_context_t* ctx);
  * negotiation, and securely transmits data to and from the client.
  *
  * @param ctx Pointer to the initialized server context.
- * @param message Buffer used for receiving the request and sending the
- * response.
  * @param callback Function pointer that processes the incoming request and
  * prepares the response.
  * @param stop Pointer to a flag that can be set asynchronously to signal the
@@ -72,7 +70,6 @@ void server_context_prepare(server_context_t* ctx);
  */
 int server_listen(
     server_context_t* ctx,
-    uint8_t* message,
     request_callback_t callback,
     const volatile sig_atomic_t* stop
 );

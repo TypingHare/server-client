@@ -57,7 +57,9 @@ void client_context_free(client_context_t* ctx);
  *
  * A piece of message consists of two parts: a prefix and the content. The
  * prefix consists of the first eight bytes, representing the length of the
- * message (including the prefix).
+ * message (including the prefix). For example:
+ *
+ * [20]Hello world!
  *
  * @param ctx Pointer to an initialized client context containing connection
  * parameters, SSL/TLS configuration, and certificate paths.
@@ -66,7 +68,7 @@ void client_context_free(client_context_t* ctx);
  * @param response Pointer to a buffer to store the server's response.
  */
 void send_message(
-    client_context_t* ctx, char* message, size_t length, uint8_t* response
+    client_context_t* ctx, const char* message, size_t length, uint8_t* response
 );
 
 #endif

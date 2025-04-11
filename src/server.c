@@ -1,8 +1,16 @@
 #include "server.h"
+#include <mbedtls/debug.h>
 #include <string.h>
 #include "common.h"
 
 void server_context_init(server_context_t* ctx) {
+#ifdef MBEDTLS_SSL_PROTO_TLS1_3
+    printf("Server support TLS 1.3\n");
+#endif
+#ifdef MBEDTLS_CHACHAPOLY_C
+    printf("Server support ChaCha20\n");
+#endif
+
     mbedtls_net_init(&ctx->server_ctx);
     mbedtls_net_init(&ctx->client_ctx);
     mbedtls_ssl_init(&ctx->ssl_ctx);
@@ -28,7 +36,8 @@ void check_mbedtls_result(
     const int result, server_context_t* ctx, const char* function_name
 ) {
     if (mbedtls_fail(result)) {
-        error("%s returned: %d", function_name, result);
+        error("%s returned: -0x%x", function_name, -result);
+        print_mbedtls_error(result);
         server_context_free(ctx);
         exit(EXIT_FAILURE);
     }
@@ -83,6 +92,7 @@ void server_context_prepare(server_context_t* ctx) {
     mbedtls_ssl_conf_rng(
         &ctx->ssl_config, mbedtls_ctr_drbg_random, &ctx->ctr_drbg_ctx
     );
+    mbedtls_debug_set_threshold(DEBUG_THRESHOLD);
     mbedtls_ssl_conf_dbg(&ctx->ssl_config, mbedtls_ssl_debug, stdout);
     mbedtls_ssl_conf_ca_chain(&ctx->ssl_config, ctx->x509_crt.next, NULL);
 
@@ -98,7 +108,6 @@ void server_context_prepare(server_context_t* ctx) {
 
 int server_listen(
     server_context_t* ctx,
-    uint8_t* message,
     const request_callback_t callback,
     const volatile sig_atomic_t* stop
 ) {
@@ -107,6 +116,16 @@ int server_listen(
     // Reset the client net context and ssl context before
     mbedtls_net_free(&ctx->client_ctx);
     mbedtls_ssl_session_reset(&ctx->ssl_ctx);
+
+    // !! Set up the accepted ciphersuites (it is not copied)
+    const int custom_ciphersuites[] = { MY_CUSTOM_CIPHERSUITE,
+                                        MBEDTLS_TLS1_3_AES_256_GCM_SHA384,
+                                        MBEDTLS_TLS1_3_AES_128_CCM_SHA256,
+                                        MBEDTLS_TLS1_3_CHACHA20_POLY1305_SHA256,
+                                        MBEDTLS_TLS1_3_AES_128_CCM_SHA256,
+                                        MBEDTLS_TLS1_3_AES_128_CCM_8_SHA256,
+                                        0 };
+    mbedtls_ssl_conf_ciphersuites(&ctx->ssl_config, custom_ciphersuites);
 
     // Set the `mbedtls_net_accept` as non-blocking
     mbedtls_net_set_nonblock(&ctx->server_ctx);
@@ -147,13 +166,14 @@ int server_listen(
     while ((result = mbedtls_ssl_handshake(&ctx->ssl_ctx)) != 0) {
         if (result != MBEDTLS_ERR_SSL_WANT_READ &&
             result != MBEDTLS_ERR_SSL_WANT_WRITE) {
-            error("mbedtls_ssl_handshake returned %d", result);
+            error("mbedtls_ssl_handshake returned: -0x%x", -result);
+            print_mbedtls_error(result);
             return -1;
         }
     }
     printf_flush("OK\n");
 
-    unsigned char buffer[8192];
+    unsigned char buffer[MESSAGE_MAX_LENGTH];
     const int request_length = receive_message(&ctx->ssl_ctx, buffer);
     if (request_length <= 0) {
         switch (request_length) {
@@ -177,6 +197,7 @@ int server_listen(
     );
 
     // Copy the buffer to `message`
+    uint8_t message[MESSAGE_MAX_LENGTH];
     memcpy(message, (char*)buffer, request_length);
 
     // Fire the callback, which should process the request and put the response

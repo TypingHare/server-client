@@ -1,6 +1,10 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+// Use TLS 1.2
+#undef MBEDTLS_SSL_PROTO_TLS1_3
+#define MBEDTLS_SSL_PROTO_TLS1_2
+
 #include <mbedtls/error.h>
 #include <mbedtls/net_sockets.h>
 #include <mbedtls/ssl.h>
@@ -11,12 +15,9 @@
 
 #define MESSAGE_MAX_LENGTH 0x4000
 
-// Debug mode
+// Enable debug mode and set the debug level (threshold)
 #define MBEDTLS_DEBUG_C
 #define DEBUG_THRESHOLD 3
-
-// Define custom ciphersuites
-#define MY_CUSTOM_CIPHERSUITE 0x13B2
 
 #define printf_flush(...)                                                      \
     do {                                                                       \
@@ -111,6 +112,14 @@ void attach_prefix_len(uint8_t* dest, size_t size);
  */
 int receive_message(mbedtls_ssl_context* ctx, uint8_t* buffer);
 
-// void print_cert(const mbedtls_x509_crt* cert);
+void export_keys_callback(
+    void* p_expkey,
+    mbedtls_ssl_key_export_type type,
+    const unsigned char* secret,
+    size_t secret_len,
+    const unsigned char client_random[32],
+    const unsigned char server_random[32],
+    mbedtls_tls_prf_types tls_prf_type
+);
 
 #endif

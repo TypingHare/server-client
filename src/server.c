@@ -1,16 +1,19 @@
 #include "server.h"
 #include <mbedtls/debug.h>
+#include <mbedtls/mbedtls_config.h>
 #include <string.h>
 #include "common.h"
 
 void server_context_init(server_context_t* ctx) {
 #ifdef MBEDTLS_SSL_PROTO_TLS1_3
-    printf("Server support TLS 1.3\n");
+    printf("Server is using TLS 1.3\n");
+#endif
+#ifdef MBEDTLS_SSL_PROTO_TLS1_2
+    printf("Server is using TLS 1.2\n");
 #endif
 #ifdef MBEDTLS_CHACHAPOLY_C
     printf("Server support ChaCha20\n");
 #endif
-
     mbedtls_net_init(&ctx->server_ctx);
     mbedtls_net_init(&ctx->client_ctx);
     mbedtls_ssl_init(&ctx->ssl_ctx);
@@ -81,13 +84,25 @@ void server_context_prepare(server_context_t* ctx) {
     printf("OK\n");
 
     // Set up SSL data
-    printf_flush("Setting up the SSL data...  ");
+    printf_flush("Setting up the SSL configuration...  ");
     result = mbedtls_ssl_config_defaults(
         &ctx->ssl_config,
         MBEDTLS_SSL_IS_SERVER,
         MBEDTLS_SSL_TRANSPORT_STREAM,
         MBEDTLS_SSL_PRESET_DEFAULT
     );
+#if !defined(MBEDTLS_SSL_PROTO_TLS1_3)
+    mbedtls_ssl_conf_min_version(
+        &ctx->ssl_config,
+        MBEDTLS_SSL_MAJOR_VERSION_3,
+        MBEDTLS_SSL_MINOR_VERSION_3
+    );
+    mbedtls_ssl_conf_max_version(
+        &ctx->ssl_config,
+        MBEDTLS_SSL_MAJOR_VERSION_3,
+        MBEDTLS_SSL_MINOR_VERSION_3
+    );
+#endif
     check_mbedtls_result(result, ctx, "mbedtls_ssl_config_defaults");
     mbedtls_ssl_conf_rng(
         &ctx->ssl_config, mbedtls_ctr_drbg_random, &ctx->ctr_drbg_ctx
@@ -117,15 +132,18 @@ int server_listen(
     mbedtls_net_free(&ctx->client_ctx);
     mbedtls_ssl_session_reset(&ctx->ssl_ctx);
 
-    // !! Set up the accepted ciphersuites (it is not copied)
-    const int custom_ciphersuites[] = { MY_CUSTOM_CIPHERSUITE,
-                                        MBEDTLS_TLS1_3_AES_256_GCM_SHA384,
-                                        MBEDTLS_TLS1_3_AES_128_CCM_SHA256,
-                                        MBEDTLS_TLS1_3_CHACHA20_POLY1305_SHA256,
-                                        MBEDTLS_TLS1_3_AES_128_CCM_SHA256,
-                                        MBEDTLS_TLS1_3_AES_128_CCM_8_SHA256,
-                                        0 };
+    // !! Set up the accepted ciphersuites
+    // We must set it in every session because it is not copied, and thus when
+    // the function finishes, it is gone
+    const int custom_ciphersuites[] = {
+        MBEDTLS_TLS1_3_AES_128_GCM_SHA256,
+        MBEDTLS_TLS_ECDH_RSA_WITH_ARIA_256_CBC_SHA384,
+        0
+    };
     mbedtls_ssl_conf_ciphersuites(&ctx->ssl_config, custom_ciphersuites);
+
+    // !! Set the callback function fired after shared secret key is generated
+    mbedtls_ssl_set_export_keys_cb(&ctx->ssl_ctx, export_keys_callback, NULL);
 
     // Set the `mbedtls_net_accept` as non-blocking
     mbedtls_net_set_nonblock(&ctx->server_ctx);
@@ -162,7 +180,7 @@ int server_listen(
     printf("OK\n");
 
     // SSL/TLS Handshake
-    printf_flush("Performing the SSL/TLS handshake...  ");
+    printf_flush("Performing the SSL/TLS handshake...  \n");
     while ((result = mbedtls_ssl_handshake(&ctx->ssl_ctx)) != 0) {
         if (result != MBEDTLS_ERR_SSL_WANT_READ &&
             result != MBEDTLS_ERR_SSL_WANT_WRITE) {

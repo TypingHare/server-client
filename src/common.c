@@ -68,13 +68,49 @@ int receive_message(mbedtls_ssl_context* ctx, uint8_t* buffer) {
     return total_length;
 }
 
-// void print_cert(const mbedtls_x509_crt* cert) {
-//     const mbedtls_pk_context* pubkey = &cert->pk;
-//     char buf[0x10000];
-//     const int ret = mbedtls_pk_write_pubkey_pem(pubkey, buf, sizeof(buf));
-//     if (ret == 0) {
-//         printf("%s\n", buf);
-//     } else {
-//         error("! Failed to print the peer's public key.");
-//     }
-// }
+void export_keys_callback(
+    // ReSharper disable once CppParameterMayBeConstPtrOrRef
+    void* p_expkey,
+    const mbedtls_ssl_key_export_type type,
+    const unsigned char* secret,
+    const size_t secret_len,
+    const unsigned char client_random[32],
+    const unsigned char server_random[32],
+    const mbedtls_tls_prf_types tls_prf_type
+) {
+    (void)p_expkey;
+    (void)client_random;
+    (void)server_random;
+    (void)tls_prf_type;
+
+#ifdef MBEDTLS_SSL_PROTO_TLS1_3
+    switch (type) {
+        case MBEDTLS_SSL_KEY_EXPORT_TLS1_3_CLIENT_HANDSHAKE_TRAFFIC_SECRET:
+            // Derive keys for encrypting handshake messages between the client
+            // and server
+            printf("Client Handshake Traffic Secret:   ");
+            break;
+        case MBEDTLS_SSL_KEY_EXPORT_TLS1_3_SERVER_HANDSHAKE_TRAFFIC_SECRET:
+            // Derive keys for encrypting handshake messages between the client
+            // and server
+            printf("Server Handshake Traffic Secret:   ");
+            break;
+        case MBEDTLS_SSL_KEY_EXPORT_TLS1_3_CLIENT_APPLICATION_TRAFFIC_SECRET:
+            // Derive keys for encrypting application data sent from the client
+            // to the server after the handshake
+            printf("Client Application Traffic Secret: ");
+            break;
+        case MBEDTLS_SSL_KEY_EXPORT_TLS1_3_SERVER_APPLICATION_TRAFFIC_SECRET:
+            // Derive keys for encrypting application data sent from the server
+            // to the client after the handshake
+            printf("Server Application Traffic Secret: ");
+            break;
+        default:;
+    }
+    for (size_t i = 0; i < secret_len; i++) {
+        printf("%02x", secret[i]);
+    }
+
+    printf("\n");
+#endif
+}

@@ -62,11 +62,17 @@ void send_message(
     check_mbedtls_result(result, ctx, "mbedtls_ssl_config_defaults");
     printf_flush("OK\n");
 
-    // !! Change the cipher suites
-    const int custom_ciphersuites[] = { MY_CUSTOM_CIPHERSUITE,
-                                        MBEDTLS_TLS1_3_AES_256_GCM_SHA384,
-                                        0 };
+    // !! Set up the cipher suites
+    const int custom_ciphersuites[] = {
+        MBEDTLS_TLS_ECDH_RSA_WITH_ARIA_256_CBC_SHA384,
+        MBEDTLS_TLS1_3_AES_128_GCM_SHA256,
+        0
+    };
     mbedtls_ssl_conf_ciphersuites(&ctx->ssl_config, custom_ciphersuites);
+
+    // !! Set the callback function fired after the shared secret key is
+    // generated
+    mbedtls_ssl_set_export_keys_cb(&ctx->ssl_ctx, export_keys_callback, NULL);
 
     // Load the CA root certificate
     printf_flush("Loading the CA root certificate...  ");
@@ -76,7 +82,7 @@ void send_message(
     mbedtls_ssl_conf_ca_chain(&ctx->ssl_config, &ctx->x509_crt, NULL);
     printf("OK\n");
 
-    // Set up RNG function (CTR-DRBG) for the SSL/TLS connection
+    // Set up the RNG function (CTR-DRBG) for the SSL/TLS connection
     mbedtls_ssl_conf_rng(
         &ctx->ssl_config, mbedtls_ctr_drbg_random, &ctx->ctr_drbg_ctx
     );
@@ -99,7 +105,7 @@ void send_message(
         NULL
     );
 
-    printf_flush("Performing the SSL/TLS handshake...  ");
+    printf_flush("Performing the SSL/TLS handshake...  \n");
     while ((result = mbedtls_ssl_handshake(&ctx->ssl_ctx)) != 0) {
         if (!mbedtls_want_read_or_write(result)) {
             check_mbedtls_result(result, ctx, "mbedtls_ssl_handshake");
@@ -117,7 +123,7 @@ void send_message(
             verify_buffer, sizeof(verify_buffer), "! ", flags
         );
         error("Failed:\n%s\n", verify_buffer);
-        check_mbedtls_result(flags, ctx, "mbedtls_x509_crt_verify_result");
+        check_mbedtls_result((int)flags, ctx, "mbedtls_x509_crt_verify_result");
     }
     printf("OK\n");
 

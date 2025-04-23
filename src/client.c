@@ -63,12 +63,7 @@ void send_message(
     printf_flush("OK\n");
 
     // !! Set up the cipher suites
-    const int custom_ciphersuites[] = {
-        MBEDTLS_TLS_ECDH_RSA_WITH_ARIA_256_CBC_SHA384,
-        MBEDTLS_TLS1_3_AES_128_GCM_SHA256,
-        0
-    };
-    mbedtls_ssl_conf_ciphersuites(&ctx->ssl_config, custom_ciphersuites);
+    mbedtls_ssl_conf_ciphersuites(&ctx->ssl_config, CUSTOM_CIPHERSUITES);
 
     // !! Set the callback function fired after the shared secret key is
     // generated

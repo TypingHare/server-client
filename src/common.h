@@ -33,6 +33,10 @@
     }                                                                          \
     while (0)
 
+static int CUSTOM_CIPHERSUITES[] = { MBEDTLS_TLS_RSA_WITH_AES_256_CBC_SHA256,
+                                     MBEDTLS_TLS1_3_AES_128_GCM_SHA256,
+                                     0 };
+
 /**
  * @brief Checks if an mbedTLS function call failed.
  *
@@ -76,12 +80,12 @@ void print_mbedtls_error(const int ret);
  * @brief Extracts the total message length (including prefix) from the given
  * data.
  *
- * Assumes the first sizeof(size_t) bytes represent the big-endian encoded
+ * Assume that the first sizeof(size_t) bytes represent the big-endian encoded
  * length of the actual message payload. The returned size includes both the
  * prefix and the payload.
  *
  * @param data Pointer to the buffer containing the prefixed data.
- * @return Total size (prefix + payload).
+ * @return Total size (prefix and payload).
  */
 size_t extract_prefix_len(const uint8_t* data);
 

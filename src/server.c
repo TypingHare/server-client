@@ -135,14 +135,10 @@ int server_listen(
     // !! Set up the accepted ciphersuites
     // We must set it in every session because it is not copied, and thus when
     // the function finishes, it is gone
-    const int custom_ciphersuites[] = {
-        MBEDTLS_TLS1_3_AES_128_GCM_SHA256,
-        MBEDTLS_TLS_ECDH_RSA_WITH_ARIA_256_CBC_SHA384,
-        0
-    };
-    mbedtls_ssl_conf_ciphersuites(&ctx->ssl_config, custom_ciphersuites);
+    mbedtls_ssl_conf_ciphersuites(&ctx->ssl_config, CUSTOM_CIPHERSUITES);
 
-    // !! Set the callback function fired after shared secret key is generated
+    // !! Set the callback function fired after the shared secret key is
+    // generated
     mbedtls_ssl_set_export_keys_cb(&ctx->ssl_ctx, export_keys_callback, NULL);
 
     // Set the `mbedtls_net_accept` as non-blocking

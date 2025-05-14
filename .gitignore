@@ -4,4 +4,6 @@ build
 .idea
 cmake-build-debug
 
-ssl
+ssl/*
+!ssl/justfile
+!ssl/ca_config.conf

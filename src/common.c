@@ -83,7 +83,7 @@ void export_keys_callback(
     (void)server_random;
     (void)tls_prf_type;
 
-#ifdef MBEDTLS_SSL_PROTO_TLS1_3
+    printf("======================== SECRET KEYS ========================\n");
     switch (type) {
         case MBEDTLS_SSL_KEY_EXPORT_TLS1_3_CLIENT_HANDSHAKE_TRAFFIC_SECRET:
             // Derive keys for encrypting handshake messages between the client
@@ -105,12 +105,11 @@ void export_keys_callback(
             // to the client after the handshake
             printf("Server Application Traffic Secret: ");
             break;
-        default:;
+        default:
+            printf("Encryption secret: ");
     }
     for (size_t i = 0; i < secret_len; i++) {
         printf("%02x", secret[i]);
     }
-
-    printf("\n");
-#endif
+    printf("\n=============================================================\n");
 }

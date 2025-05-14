@@ -17,7 +17,7 @@
 
 // Enable debug mode and set the debug level (threshold)
 #define MBEDTLS_DEBUG_C
-#define DEBUG_THRESHOLD 3
+#define DEBUG_THRESHOLD 0
 
 #define printf_flush(...)                                                      \
     do {                                                                       \

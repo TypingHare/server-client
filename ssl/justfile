@@ -1,0 +1,19 @@
+generate:
+    # Generate a RSA private key (ca.key)
+    openssl genrsa -out ca.key 2048
+    # Generate a self-signed root CA certificate using ca.key (ca.crt)
+    openssl req -x509 -new -nodes -key ca.key -sha256 -days 1024 -out ca.crt -config ca_config.conf
+    # Generate a RSA private key (server.key)
+    openssl genrsa -out server.key 2048
+    # Generate a CSR for the server which will be signed by the CA (server.csr)
+    openssl req -new -key server.key -out server.csr -config ca_config.conf
+    # Sign the server’s CSR with the CA’s key to issue a valid certificate (server.crt)
+    openssl x509 -req -days 360 -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt
+    ssh-keygen -t rsa -b 4096 -m PEM -f private.key
+    mv private.key.pub public.key
+
+clean:
+    rm -f ca.crt ca.key ca.srl private.key public.key server.crt server.csr server.key
+
+server-crt-text:
+    openssl x509 -in server.crt -text -noout

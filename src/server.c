@@ -162,6 +162,7 @@ int server_listen(
             return -1;
         }
     }
+
     if (*stop) {
         return 0;
     }
